@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The <plugins> element contains the description of the plugins available at this repository. Required.
+-->
+<plugins>
+    <plugin id="WxbYapiUpload" url="http://127.0.0.1/plugins/WxbYapiUpload.jar" version="2.3.1">
+        <change-notes><![CDATA[
+          <ul>
+              <li>修改yapi上传为账户密码方式</li>
+              <li>修改yapi上传为异步上传</li>
+              <li>修复post表单参数@NotNull等不生效</li>
+              <li>修复若干其他问题和优化代码</li>
+          </ul>
+        ]]></change-notes>
+    </plugin>
+</plugins>
