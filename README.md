@@ -1,5 +1,5 @@
 # intellij-repository
-自定义intellij存储库，使用15行代码编写
+自定义intellij存储库，支持自动生成plugins.xml文件.
 
 **如何使用:**
 - 1.配置插件仓库: `File -> Settings -> Plugins -> 设置 -> Mange Plugin Repsitories`
