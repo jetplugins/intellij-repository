@@ -3,15 +3,20 @@ package main
 import (
 	"archive/zip"
 	"encoding/xml"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -92,6 +97,7 @@ func initPluginsXml(dir string) {
 	}
 	// generate xml
 	repoPlugins := &RepoPlugins{Plugins: plugins}
+	repoPlugins.Comment = "Generated At: " + time.Now().Format("2006-01-02 15:04")
 	xmlBytes, err := xml.MarshalIndent(repoPlugins, "", "    ")
 	if err != nil {
 		panic(err)
@@ -139,6 +145,58 @@ func getPluginsXml(url string) []byte {
 
 // 从插件包解析信息
 func resolvePluginFile(file string) (*RepoPlugin, error) {
+	ext := path.Ext(file)
+	if ext == ".jar" {
+		return resolvePluginFileJar(file)
+	} else {
+		return resolvePluginFileZip(file)
+	}
+}
+
+// 解析ZIP格式插件包
+func resolvePluginFileZip(file string) (*RepoPlugin, error) {
+	reader, err := zip.OpenReader(file)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	// 查找zip中的插件jar路径
+	pluginJarRegexp := regexp.MustCompile("^(?P<name1>.+)/lib/(?P<name2>.+)\\.jar$")
+	var pluginJar *zip.File
+	for _, f := range reader.File {
+		matches := pluginJarRegexp.FindStringSubmatch(f.Name)
+		if len(matches) >= 3 && strings.Index(matches[2], matches[1]) == 0 {
+			pluginJar = f
+			break
+		}
+	}
+	if pluginJar == nil {
+		return nil, errors.New("not found plugin jar in archive file")
+	}
+	// 解压插件到指定位置
+	dstFilePath := path.Join("/tmp/intellij-repository", pluginJar.Name)
+	if err := os.MkdirAll(filepath.Dir(dstFilePath), os.ModePerm); err != nil {
+		return nil, err
+	}
+	f, err := pluginJar.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	dstFile, err := os.OpenFile(dstFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, pluginJar.Mode())
+	if err != nil {
+		return nil, err
+	}
+	if _, err := io.Copy(dstFile, f); err != nil {
+		return nil, err
+	}
+
+	return resolvePluginFileJar(dstFilePath)
+}
+
+// 从插件包Jar格式插件包
+func resolvePluginFileJar(file string) (*RepoPlugin, error) {
 	reader, err := zip.OpenReader(file)
 	if err != nil {
 		return nil, err
@@ -185,6 +243,7 @@ func resolvePluginFile(file string) (*RepoPlugin, error) {
 
 type RepoPlugins struct {
 	XMLName xml.Name      `xml:"plugins"`
+	Comment string        `xml:",comment"`
 	Plugins []*RepoPlugin `xml:"plugin"`
 }
 
